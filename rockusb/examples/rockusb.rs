@@ -14,10 +14,13 @@ use clap::{Parser, ValueEnum};
 use clap_num::maybe_hex;
 use flate2::read::GzDecoder;
 use rockfile::boot::{
-    RkBootEntry, RkBootEntryBytes, RkBootHeader, RkBootHeaderBytes, RkBootHeaderEntry,
+    RkBootEntry, RkBootHeader, RkBootHeaderEntry,
 };
 use rockusb::libusb::{DeviceUnavalable, Transport};
 use rockusb::protocol::ResetOpcode;
+
+use binrw::io::BufReader;
+use binrw::BinReaderExt;
 
 fn read_flash_info(mut transport: Transport) -> Result<()> {
     let info = transport.flash_info()?;
@@ -127,25 +130,23 @@ fn write_bmap(transport: Transport, path: &Path) -> Result<()> {
 fn download_entry(
     header: RkBootHeaderEntry,
     code: u16,
-    file: &mut File,
+    reader: &mut BufReader<File>,
     transport: &mut Transport,
 ) -> Result<()> {
     for i in 0..header.count {
-        let mut entry: RkBootEntryBytes = [0; 57];
 
-        file.seek(SeekFrom::Start(
+        reader.seek(SeekFrom::Start(
             header.offset as u64 + (header.size * i) as u64,
         ))?;
-        file.read_exact(&mut entry)?;
+        let entry: RkBootEntry = reader.read_ne()?;
 
-        let entry = RkBootEntry::from_bytes(&entry);
         println!("{} Name: {}", i, String::from_utf16(entry.name.as_slice())?);
 
         let mut data = Vec::new();
         data.resize(entry.data_size as usize, 0);
 
-        file.seek(SeekFrom::Start(entry.data_offset as u64))?;
-        file.read_exact(&mut data)?;
+        reader.seek(SeekFrom::Start(entry.data_offset as u64))?;
+        reader.read_exact(&mut data)?;
 
         transport.write_maskrom_area(code, &data)?;
 
@@ -159,15 +160,10 @@ fn download_entry(
 }
 
 fn download_boot(mut transport: Transport, path: &Path) -> Result<()> {
-    let mut file = File::open(path)?;
-    let mut header: RkBootHeaderBytes = [0; 102];
-    file.read_exact(&mut header)?;
-
-    let header =
-        RkBootHeader::from_bytes(&header).ok_or_else(|| anyhow!("Failed to parse header"))?;
-
-    download_entry(header.entry_471, 0x471, &mut file, &mut transport)?;
-    download_entry(header.entry_472, 0x472, &mut file, &mut transport)?;
+    let mut reader = BufReader::new(File::open(path)?);
+    let header: RkBootHeader = reader.read_ne()?;
+    download_entry(header.entry_471, 0x471, &mut reader, &mut transport)?;
+    download_entry(header.entry_472, 0x472, &mut reader, &mut transport)?;
 
     Ok(())
 }

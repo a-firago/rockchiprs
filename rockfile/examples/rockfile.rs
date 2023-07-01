@@ -4,28 +4,31 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Result};
+use binrw::io::BufReader;
+use binrw::BinReaderExt;
+use anyhow::{Result};
+
 use clap::Parser;
 use rockfile::boot::{
-    RkBootEntry, RkBootEntryBytes, RkBootHeader, RkBootHeaderBytes, RkBootHeaderEntry,
+    RkBootEntry, RkBootHeader, RkBootHeaderEntry,
 };
 
-fn parse_entry(header: RkBootHeaderEntry, name: &str, file: &mut File) -> Result<()> {
+fn parse_entry(header: RkBootHeaderEntry, name: &str, reader: &mut BufReader<File>) -> Result<()> {
     for i in 0..header.count {
-        let mut entry: RkBootEntryBytes = [0; 57];
-        file.seek(SeekFrom::Start(
+        reader.seek(SeekFrom::Start(
             header.offset as u64 + (header.size * i) as u64,
         ))?;
-        file.read_exact(&mut entry)?;
-        let entry = RkBootEntry::from_bytes(&entry);
+
+        let entry: RkBootEntry = reader.read_ne()?;
+
         println!("== {} Entry  {} ==", name, i);
         println!("Name: {}", String::from_utf16(entry.name.as_slice())?);
         println!("Raw: {:?}", entry);
 
         let mut data = Vec::new();
         data.resize(entry.data_size as usize, 0);
-        file.seek(SeekFrom::Start(entry.data_offset as u64))?;
-        file.read_exact(&mut data)?;
+        reader.seek(SeekFrom::Start(entry.data_offset as u64))?;
+        reader.read_exact(&mut data)?;
 
         let crc = crc::Crc::<u16>::new(&crc::CRC_16_IBM_3740);
         println!("Data CRC: {:x}", crc.checksum(&data));
@@ -35,11 +38,8 @@ fn parse_entry(header: RkBootHeaderEntry, name: &str, file: &mut File) -> Result
 }
 
 fn parse_boot(path: &Path) -> Result<()> {
-    let mut file = File::open(path)?;
-    let mut header: RkBootHeaderBytes = [0; 102];
-    file.read_exact(&mut header)?;
-    let header =
-        RkBootHeader::from_bytes(&header).ok_or_else(|| anyhow!("Failed to parse header"))?;
+    let mut reader = BufReader::new(File::open(path)?);
+    let header: RkBootHeader = reader.read_ne()?;
 
     println!("Raw Header: {:?}", header);
     println!(
@@ -47,14 +47,15 @@ fn parse_boot(path: &Path) -> Result<()> {
         header.supported_chip,
         String::from_utf8_lossy(&header.supported_chip)
     );
-    parse_entry(header.entry_471, "0x471", &mut file)?;
-    parse_entry(header.entry_472, "0x472", &mut file)?;
-    parse_entry(header.entry_loader, "loader", &mut file)?;
+    parse_entry(header.entry_471, "0x471", &mut reader)?;
+    parse_entry(header.entry_472, "0x472", &mut reader)?;
+    parse_entry(header.entry_loader, "loader", &mut reader)?;
     Ok(())
 }
 
 #[derive(Debug, clap::Subcommand)]
 enum Command {
+    /// Print bootloader info
     BootFile { path: PathBuf },
 }
 

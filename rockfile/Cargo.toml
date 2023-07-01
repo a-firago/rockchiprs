@@ -13,6 +13,7 @@ readme = "README.md"
 
 [dependencies]
 bytes = "1.4.0"
+binrw = "0.11.2"
 
 [dev-dependencies]
 anyhow = "1.0.69"

@@ -1,7 +1,11 @@
 use bytes::Buf;
+use binrw::{
+    binrw,
+};
 
 pub type RkTimeBytes = [u8; 7];
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[binrw]
 pub struct RkTime {
     year: u16,
     month: u8,
@@ -37,6 +41,7 @@ pub type RkBootHeaderEntryBytes = [u8; 6];
 /// Each boot header entry contains the count of [RkBootEntry]'s that are continous at the given
 /// offset in the boot file.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[binrw]
 pub struct RkBootHeaderEntry {
     pub count: u8,
     pub offset: u32,
@@ -63,6 +68,7 @@ pub type RkBootEntryBytes = [u8; 57];
 /// boot file. After uploading the blob to SoC a delay of data_delay miliseconds should be
 /// observed before uploading the next blob
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[binrw]
 pub struct RkBootEntry {
     /// size of this entry
     pub size: u8,
@@ -110,6 +116,7 @@ pub type RkBootHeaderBytes = [u8; 102];
 /// bootrom ddr, typically implementing the complete usb protocol. And finally the loader entry
 /// which are the blobs meant to be used for a normal boot
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[binrw]
 pub struct RkBootHeader {
     pub tag: [u8; 4],
     pub size: u16,
