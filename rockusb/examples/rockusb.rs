@@ -306,12 +306,21 @@ fn list_available_devices() -> Result<()> {
     let devices = rockusb::libusb::Devices::new()?;
     println!("Available rockchip devices");
     for d in devices.iter() {
-        match d {
-            Ok(mut d) => println!("* {:?}", d.handle().device()),
+        let mut dev = match d {
+            Ok(d) => d,
             Err(DeviceUnavalable { device, error }) => {
-                println!("* {:?} - Unavailable: {}", device, error)
+                println!("* {:?} - Unavailable: {}", device, error);
+                continue
             }
-        }
+        };
+
+        let device_desc = match dev.handle().device().device_descriptor() {
+            Ok(d) => d,
+            Err(_) => continue,
+        };
+
+        println!("* {:?}, Serial: {}", dev.handle().device(),
+            dev.handle().read_serial_number_string_ascii(&device_desc).unwrap_or("Unavailable".to_string()))
     }
 
     Ok(())
