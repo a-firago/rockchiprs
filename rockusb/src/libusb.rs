@@ -175,6 +175,12 @@ impl Transport {
         self.handle.device().address()
     }
 
+    pub fn serial(&mut self) -> Result<String> {
+        let device_desc = self.handle().device().device_descriptor().unwrap();
+
+        Ok(self.handle().read_serial_number_string_ascii(&device_desc)?)
+    }
+
     fn handle_operation<O, T>(&mut self, mut operation: O) -> Result<T>
     where
         O: OperationSteps<T>,

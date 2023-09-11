@@ -309,6 +309,11 @@ struct Opts {
     #[arg(short, long, value_parser = parse_device)]
     /// Device type specified as <bus>:<address>
     device: Option<DeviceArg>,
+
+     #[arg(short, long)]
+    /// Device serial number
+    serial: Option<String>,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -358,6 +363,18 @@ fn main() -> Result<()> {
                 }
             })
             .ok_or_else(|| anyhow!("Specified device not found"))?
+    } else if let Some(serial) = opt.serial {
+         devices
+            .iter()
+            .find(|d| match d {
+                Ok(device) => {
+                    device.serial().unwrap() == serial
+                }
+                Err(DeviceUnavalable { device, .. }) => {
+                    device.serial().unwrap() == serial
+                }
+            })
+            .ok_or_else(|| anyhow!("Specified device not found"))?       
     } else {
         let mut devices: Vec<_> = devices.iter().collect();
         match devices.len() {
