@@ -201,6 +201,15 @@ fn run_nbd(transport: Transport) -> Result<()> {
     Ok(())
 }
 
+fn print_gpt(mut transport: Transport) -> Result<()> {
+    let mut gpt = Vec::new();
+    gpt.resize(34 * 512, 0);
+    transport.read_lba(0, &mut gpt)?;
+
+    println!("{:?}", gpt);
+    Ok(())
+}
+
 #[derive(Debug, clap::Parser)]
 enum Command {
     List,
@@ -238,6 +247,8 @@ enum Command {
     },
     // Run/expose device as a network block device
     Nbd,
+    /// Print partition table
+    Ppt,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -388,5 +399,6 @@ fn main() -> Result<()> {
         Command::FlashInfo => read_flash_info(transport),
         Command::ResetDevice { opcode } => reset_device(transport, opcode.into()),
         Command::Nbd => run_nbd(transport),
+        Command::Ppt => print_gpt(transport),
     }
 }
